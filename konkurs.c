@@ -244,9 +244,9 @@ void czekajac_na_odpowiedzi(int *stan, int *zegar_logiczny, int lekarz_id, int r
 				break;
 			case INFORMACJA_O_ZAKONCZENIU:
 				ile_zakonczonych++;
-				printf("Proces: %i:Dostałem informacje o zakonczeniu działania procesu %i\n", rank, status.MPI_SOURCE);
+				printf("Proces: %i: Dostałem informacje o zakonczeniu działania procesu %i\n", rank, status.MPI_SOURCE);
 				if(ile_zakonczonych == (size-1) && *stan==ZAKONCZONY) {
-					printf("WYCHODZI NA TO ZE WSZYSCY SA GOTOWI DO KONKURSU!\n");
+					printf("Proces %i: WYCHODZI NA TO ZE WSZYSCY SA GOTOWI DO KONKURSU!\n", rank);
 					*stan = ZACZAC_KONKURS;			
 					czy_petla=FALSE;	
 				}
@@ -332,8 +332,8 @@ int main(int argc, char **argv)
 					}
 					else {
 						stan = ZAKONCZONY;
-						zakonczenie(rank, 4, zegar_logiczny);
-						czy_czekamy_na_odpowiedz=TRUE;				
+					//	zakonczenie(rank, 4, zegar_logiczny);
+					//	czy_czekamy_na_odpowiedz=TRUE;				
 					}
 					break;
 				case CHCE_DO_SALONU:
