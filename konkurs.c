@@ -35,7 +35,7 @@ struct message
 void zeruj_zegar(int *zegar_logiczny, int size) {
 	int i=0;
 	for(i=0; i<size; i++) {
-		zegar_logiczny = 0;
+		zegar_logiczny[i] = 0;
 	}
 }
 void przed_lekarzem(int *stan) {
