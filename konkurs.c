@@ -42,16 +42,18 @@ void przed_lekarzem(int *stan) {
 	// sleep albo cos tu mozna dodac
 	*stan = CHCE_DO_LEKARZA;
 }
-void chce_do_lekarza(int *stan, int rank, int size, int lekarz_id, int *zegar_logiczny) {
+int chce_do_lekarza(int *stan, int rank, int size, int lekarz_id, int *zegar_logiczny) {
 	int i=0;
 	//printf("SIZE: %i\n", size);
+	zegar_logiczny[rank]++;
 	for(i=0; i<size; i++) { // size cos nie tak
 		if(rank == i) continue;
 		else {
-			printf("Proces: %i: wysyla zapytanie o stan kolejki do wskazanego lekarza %i do procesu %i\n", rank, lekarz_id, i);
-			MPI_Send_Clock(&lekarz_id, i, ZAPYTANIE_O_STAN_KOLEJKI, zegar_logiczny, rank);
+			printf("Proces: %i o zegarze %i wysyla zapytanie o stan kolejki do wskazanego lekarza %i do procesu %i\n", rank, zegar_logiczny[rank], lekarz_id, i);
+			MPI_Send_Clock_All(&lekarz_id, i, ZAPYTANIE_O_STAN_KOLEJKI, zegar_logiczny, rank);
 		}	
 	}
+	return zegar_logiczny[rank];
 }
 void u_lekarza(int rank, int *liczba_modelek) {
 	int i=0;
@@ -63,54 +65,59 @@ void u_lekarza(int rank, int *liczba_modelek) {
 			*liczba_modelek--;		
 		}
 	}
-	printf("Proces: %i: pozostala liczba modelek po wyjsciu od lekarza to %i\n",rank, *liczba_modelek);
+	printf("Proces: %i pozostala liczba modelek po wyjsciu od lekarza to %i\n",rank, *liczba_modelek);
 }
 void wyjscie_od_lekarza(int id_lekarza, int rank, int size, int *zegar_logiczny) {
 	int i=0;
+	zegar_logiczny[rank]++;
 	for(i=0; i<size; i++) {
 		if(rank == i) continue;
 		else {
-			MPI_Send_Clock(&id_lekarza, i, WYJSCIE_OD_LEKARZA, zegar_logiczny, rank);		
+			MPI_Send_Clock_All(&id_lekarza, i, WYJSCIE_OD_LEKARZA, zegar_logiczny, rank);		
 		}
 	}
 }
 
 void w_salonie(int rank,int liczba_modelek){
 	//sleep(50*liczba_modelek);
-	printf("Proces: %i: Liczba modelek obsłużonych w salonie: %i\n",rank, liczba_modelek);
+	printf("Proces: %i Liczba modelek obsłużonych w salonie: %i\n",rank, liczba_modelek);
 }
 
-void chce_do_salonu(int *stan, int rank, int size, int modelek, int *zegar_logiczny) {
+int chce_do_salonu(int *stan, int rank, int size, int modelek, int *zegar_logiczny) {
 	int i=0;
 	//printf("SIZE: %i\n", size);
+	zegar_logiczny[rank]++;
 	for(i=0; i<size; i++) { // size cos nie tak
 		if(rank == i) continue;
 		else {
-			printf("Proces: %i wysyla zapytanie o stan kolejki do salonu %i do procesu %i\n", rank, modelek, i);
-			MPI_Send_Clock(&modelek, i, ZAPYTANIE_O_STAN_SALONU, zegar_logiczny, rank);
+			printf("Proces: %i o zegarze %i wysyla zapytanie o stan kolejki do salonu %i do procesu %i\n", rank, zegar_logiczny[rank], modelek, i);
+			MPI_Send_Clock_All(&modelek, i, ZAPYTANIE_O_STAN_SALONU, zegar_logiczny, rank);
 		}	
 	}
+	return zegar_logiczny[rank];
 }
 
 void wyjscie_z_salonu(int rank, int size, int *zegar_logiczny, int liczba_modelek) {
 	int i=0;
+	zegar_logiczny[rank]++;
 	for(i=0; i<size; i++) {
 		if(rank == i) continue;
 		else {
-			MPI_Send_Clock(&liczba_modelek, i, WYJSCIE_Z_SALONU, zegar_logiczny, rank);		
+			MPI_Send_Clock_All(&liczba_modelek, i, WYJSCIE_Z_SALONU, zegar_logiczny, rank);		
 		}
 	}
 }
 void zakonczenie(int rank, int size, int *zegar_logiczny) {
 	int i=0;
+	zegar_logiczny[rank]++;
 	for(i=0; i<size; i++) {
 		if(rank == i) continue;
 		else {
-			MPI_Send_Clock(&i, i, INFORMACJA_O_ZAKONCZENIU, zegar_logiczny, rank);			
+			MPI_Send_Clock_All(&i, i, INFORMACJA_O_ZAKONCZENIU, zegar_logiczny, rank);			
 		}	
 	}
 }
-void czekajac_na_odpowiedzi(int *stan, int *zegar_logiczny, int lekarz_id, int rank, int size, int modelek, int miejsca, int reset) {
+void czekajac_na_odpowiedzi(int *stan, int *zegar_logiczny, int lekarz_id, int rank, int size, int modelek, int miejsca, int reset, int kiedy_do_lekarza, int kiedy_do_salonu, int *w_kolejce_do_salonu) {
 	int *buf = malloc(sizeof(int));
 	static int lekarz_odebrane = 0;
 	static int lekarz_kolejka = 0;
@@ -119,6 +126,10 @@ void czekajac_na_odpowiedzi(int *stan, int *zegar_logiczny, int lekarz_id, int r
 	MPI_Status status;
 	int czy_petla = TRUE;
 	static int ile_zakonczonych = 0;
+	int *w_kolejce = malloc(size*sizeof(int));
+	//static int w_kolejce_do_salonu[size];// = malloc(size*sizeof(int));
+	int i;
+	for (i=0;i<size;i++) w_kolejce[i]=0;
 	if(reset==TRUE) {
 #ifdef DEBUG
 		printf("RESET\n");
@@ -128,12 +139,18 @@ void czekajac_na_odpowiedzi(int *stan, int *zegar_logiczny, int lekarz_id, int r
 		salon_odebrane = 0;
 		ile_w_salonie = 0;	
 	}
-	while(czy_petla) {
+	while(czy_petla) {  
 		int zegar_info = MPI_Recv_Clock(buf,MPI_ANY_SOURCE, MPI_ANY_TAG, &status, zegar_logiczny, rank);
 		//printf("Proces: %i Odebrano wiadoMosc od: %i \n", rank, status.MPI_SOURCE);
 		switch(status.MPI_TAG) {
 			case ZAPYTANIE_O_STAN_KOLEJKI:
-				printf("Proces: %i: Interesuje go (%i) stan kolejki do lekarza %i\n", rank, status.MPI_SOURCE, *buf);
+				printf("Proces: %i o zegarze %i Interesuje go (%i) stan kolejki do lekarza %i, zegar info to %i vs %i\n", rank, zegar_logiczny[rank], status.MPI_SOURCE, *buf, kiedy_do_lekarza, zegar_info);
+				if(zegar_info < kiedy_do_lekarza && *buf == lekarz_id){
+					w_kolejce[status.MPI_SOURCE]=1;
+				}
+				if(zegar_info == kiedy_do_lekarza && rank > status.MPI_SOURCE  && *buf == lekarz_id){
+					w_kolejce[status.MPI_SOURCE]=1;
+				}
 				if(*stan == CHCE_DO_LEKARZA) {
 					MPI_Send_Clock(&lekarz_id, status.MPI_SOURCE, INFORMACJA_O_STANIE_KOLEJKI, zegar_logiczny, rank);				
 				}
@@ -144,8 +161,11 @@ void czekajac_na_odpowiedzi(int *stan, int *zegar_logiczny, int lekarz_id, int r
 				break;
 			case INFORMACJA_O_STANIE_KOLEJKI:
 				lekarz_odebrane++;
-				printf("Proces: %i: %i Odeslal naM wynik do zapytania o stan kolejki do lekarza %i\n",rank, status.MPI_SOURCE, *buf);
+				printf("Proces: %i o zegarze %i, %i Odeslal naM wynik do zapytania o stan kolejki do lekarza %i\n",rank, zegar_logiczny[rank], status.MPI_SOURCE, *buf);
 				if(*buf == -1) {
+					if(w_kolejce[status.MPI_SOURCE] == 1) {
+						w_kolejce[status.MPI_SOURCE] = 0;
+					}
 #ifdef DEBUG
 					printf("Proces nie jest w kolejce do lekarza");		
 #endif		
@@ -157,33 +177,40 @@ void czekajac_na_odpowiedzi(int *stan, int *zegar_logiczny, int lekarz_id, int r
 #endif
 					}
 					else {
-						if(rank > status.MPI_SOURCE) lekarz_kolejka++;
 #ifdef DEBUG
 						printf("Proces czeka w kolejce z naMi\n");
 #endif
-						// if(zegar_info == WYSLANE_ROWNO) {
-						// 	
-						// }
-						// if(zegar_info == WYSLANE_WCZESNIEJ) {
-						// 	lekarz_kolejka++;
-						// }
-						//lekarz_kolejka++;
 					}
 				}
-				if(lekarz_odebrane == size-1) { // !!! NA SIZE-1 !!!!
-					printf("Proces: %i: DostaleM wszystkie odpowiedzi co do lekarza, kolejka wynosi %i\n", rank, lekarz_kolejka);
-					if((lekarz_kolejka <= 0) && (*stan == CHCE_DO_LEKARZA)) {
+				if(lekarz_odebrane == size-1 && *stan == CHCE_DO_LEKARZA) { // !!! NA SIZE-1 !!!!
+					int ile_w_kolejce = 0;
+					for(i=0; i<size; i++) {
+						ile_w_kolejce+=w_kolejce[i];
+					}
+					printf("Proces: %i o zegarze %i DostaleM wszystkie odpowiedzi co do lekarza, kolejka wynosi %i\n", rank, zegar_logiczny[rank], ile_w_kolejce);
+					if(ile_w_kolejce == 0 && lekarz_odebrane==size-1) {
 						printf("Proces: %i: Wchodze do lekarza!\n", rank);
 						*stan = U_LEKARZA;
-						czy_petla=FALSE;			
+						czy_petla=FALSE;
 					}
 				}
 				break;
 			case WYJSCIE_OD_LEKARZA:
-				//TODO: IF do którego lekarza
-				lekarz_kolejka--;
-				printf(" Proces: %i: %i wychodzi od lekarza %i, aktualny stan kolejki do niego: %i\n",rank, status.MPI_SOURCE, *buf,lekarz_kolejka);
-				if(lekarz_odebrane == size-1) { // !!! NA SIZE-1 !!!!
+				if(*buf == lekarz_id && *stan == CHCE_DO_LEKARZA){
+					w_kolejce[status.MPI_SOURCE] = 0;
+					/////// sprawdzic ile jeszcze w kolejce
+					int ile_w_kolejce = 0;
+					for(i=0; i<size; i++) {
+						ile_w_kolejce+=w_kolejce[i];
+					}
+					if(ile_w_kolejce == 0 && lekarz_odebrane==size-1) {
+						printf("Proces: %i: Wchodze do lekarza!\n", rank);
+						*stan = U_LEKARZA;
+						czy_petla=FALSE;
+					}
+				}
+				printf("Proces: %i o zegarze %i, %i wychodzi od lekarza %i, aktualny stan kolejki do niego: %i\n",rank, zegar_logiczny[rank], status.MPI_SOURCE, *buf,lekarz_kolejka);
+/*				if(lekarz_odebrane == size-1) { // !!! NA SIZE-1 !!!!
 #ifdef DEBUG
 					printf("%i: DostaleM wszystkie odpowiedzi\n", rank);
 #endif
@@ -192,11 +219,17 @@ void czekajac_na_odpowiedzi(int *stan, int *zegar_logiczny, int lekarz_id, int r
 						*stan = U_LEKARZA;
 						czy_petla=FALSE;			
 					}
-				}				
+				}	*/			
 				break;
 			case ZAPYTANIE_O_STAN_SALONU:
-				printf("Proces: %i: Interesuje go (%i) stan kolejki do salonu %i\n",rank,status.MPI_SOURCE, *buf);
-				if(*stan == CHCE_DO_SALONU || *stan == W_SALONIE) {
+				if(zegar_info < kiedy_do_salonu){
+					w_kolejce_do_salonu[status.MPI_SOURCE]=*buf;
+				}
+				if(zegar_info == kiedy_do_salonu && rank > status.MPI_SOURCE){
+					w_kolejce_do_salonu[status.MPI_SOURCE]=*buf;
+				}
+				printf("Proces: %i o zegarze %i Interesuje go (%i) stan kolejki do salonu %i\n",rank, zegar_logiczny[rank], status.MPI_SOURCE, *buf);
+				if(*stan == CHCE_DO_SALONU) {
 					MPI_Send_Clock(&modelek, status.MPI_SOURCE, INFORMACJA_O_STANIE_SALONU, zegar_logiczny, rank);				
 				}
 				else {
@@ -206,22 +239,21 @@ void czekajac_na_odpowiedzi(int *stan, int *zegar_logiczny, int lekarz_id, int r
 				break;
 			case INFORMACJA_O_STANIE_SALONU:
 				salon_odebrane++;
-				printf("Proces: %i: %i Odeslal nam wynik do zapytania o stan salonu %i\n",rank,status.MPI_SOURCE, *buf);
+				printf("Proces: %i o zegarze %i,  %i Odeslal nam wynik do zapytania o stan salonu %i\n",rank, zegar_logiczny[rank], status.MPI_SOURCE, *buf);
 				if(*buf == -1) {
-				}
-				else {
-					if(rank > status.MPI_SOURCE) ile_w_salonie+=*buf;
-					// if(zegar_info == WYSLANE_ROWNO) {
-					// 	if(rank > status.MPI_SOURCE) ile_w_salonie+=*buf;;
-					// }
-					// if(zegar_info == WYSLANE_WCZESNIEJ) {
-					// 	ile_w_salonie+=*buf;
-					// }
-					
+					if(w_kolejce_do_salonu[status.MPI_SOURCE] > 0) {
+						w_kolejce_do_salonu[status.MPI_SOURCE] = 0;
+					}
 				}
 				if(salon_odebrane == size-1) { // !!! NA SIZE-1 !!!!
-					printf("Proces: %i: Dostalem wszystkie odpowiedzi co do salonu, w salonie bądź w kolejce do niego jest %i modelek\n", rank, ile_w_salonie);
-					if((ile_w_salonie + modelek <=  miejsca) && (*stan == CHCE_DO_SALONU)) {
+					int suma_w_salonie = 0;	
+					int i=0;
+					for(i=0; i<size; i++) {
+						suma_w_salonie+=w_kolejce_do_salonu[i];
+					}
+					printf("Proces: %i o zegarze %i Dostalem wszystkie odpowiedzi co do salonu, w salonie bądź w kolejce do niego jest %i modelek\n", rank, zegar_logiczny[rank], ile_w_salonie);
+
+					if((suma_w_salonie + modelek <=  miejsca) && (*stan == CHCE_DO_SALONU)) {
 						printf("Proces: %i: Wchodze do salonu!\n", rank);
 						*stan = W_SALONIE;
 						czy_petla=FALSE;			
@@ -229,13 +261,16 @@ void czekajac_na_odpowiedzi(int *stan, int *zegar_logiczny, int lekarz_id, int r
 				}
 				break;
 			case WYJSCIE_Z_SALONU:
-				ile_w_salonie -= *buf;
-				printf("Proces: %i: Dostałem wiadomość o wyjściu z salonu od %i z modelkami: %i, w kolejce pozostało: %i\n", rank,status.MPI_SOURCE, *buf, ile_w_salonie);		
+				w_kolejce_do_salonu[status.MPI_SOURCE] = 0;
 				if(salon_odebrane == size-1) { // !!! NA SIZE-1 !!!!
-#ifdef DEBUG
-					printf("%i: DostaleM wszystkie odpowiedzi do do salonu\n", rank);
-#endif
-					if((ile_w_salonie + modelek) <=  miejsca && (*stan == CHCE_DO_SALONU)) {
+					int suma_w_salonie = 0;	
+					int i=0;
+					for(i=0; i<size; i++) {
+						suma_w_salonie+=w_kolejce_do_salonu[i];
+					}
+					printf("Proces: %i o zegarze %i Dostalem wszystkie odpowiedzi co do salonu, w salonie bądź w kolejce do niego jest %i modelek\n", rank, zegar_logiczny[rank], ile_w_salonie);
+
+					if((suma_w_salonie + modelek <=  miejsca) && (*stan == CHCE_DO_SALONU)) {
 						printf("Proces: %i: Wchodze do salonu!\n", rank);
 						*stan = W_SALONIE;
 						czy_petla=FALSE;			
@@ -244,7 +279,7 @@ void czekajac_na_odpowiedzi(int *stan, int *zegar_logiczny, int lekarz_id, int r
 				break;
 			case INFORMACJA_O_ZAKONCZENIU:
 				ile_zakonczonych++;
-				printf("Proces: %i: Dostałem informacje o zakonczeniu działania procesu %i\n", rank, status.MPI_SOURCE);
+				printf("Proces: %i o zegarze %i Dostałem informacje o zakonczeniu działania procesu %i\n", rank,  zegar_logiczny[rank], status.MPI_SOURCE);
 				if(ile_zakonczonych == (size-1) && *stan==ZAKONCZONY) {
 					printf("Proces %i: WYCHODZI NA TO ZE WSZYSCY SA GOTOWI DO KONKURSU!\n", rank);
 					*stan = ZACZAC_KONKURS;			
@@ -253,12 +288,19 @@ void czekajac_na_odpowiedzi(int *stan, int *zegar_logiczny, int lekarz_id, int r
 				break;
 		}
 	}
-
+	free(w_kolejce);
 	free(buf);
 }
 //nakladka na send - zegar
 int MPI_Send_Clock(const void *buf, int dest, int tag, int *zegar_logiczny, int rank) {
 	zegar_logiczny[rank]++;
+	int *new_buff = malloc(2*sizeof(int));
+	memcpy(new_buff, buf, sizeof(int));
+	new_buff[1] = zegar_logiczny[rank]; // ?
+	int return_value = MPI_Send(new_buff, 2, MPI_INTEGER, dest, tag, MPI_COMM_WORLD); // 2 INTY
+	free(new_buff);
+}
+int MPI_Send_Clock_All(const void *buf, int dest, int tag, int *zegar_logiczny, int rank) {
 	int *new_buff = malloc(2*sizeof(int));
 	memcpy(new_buff, buf, sizeof(int));
 	new_buff[1] = zegar_logiczny[rank]; // ?
@@ -271,6 +313,7 @@ int MPI_Recv_Clock(void *buf, int source, int tag, MPI_Status *status, int *zega
 	MPI_Recv(new_buff, 2, MPI_INTEGER, source, tag,  MPI_COMM_WORLD, status);
 	int result;
 	// zegar
+	//printf("Proces %i : odebral od %i, zegar %i vs %i", rank, source, zegar_logiczny[rank], new_buff[1]);
 	if(zegar_logiczny[rank] < new_buff[1]) {
 		result= WYSLANE_POZNIEJ;
 		zegar_logiczny[rank]=new_buff[1];
@@ -283,7 +326,8 @@ int MPI_Recv_Clock(void *buf, int source, int tag, MPI_Status *status, int *zega
 	}
 	////////
 	memcpy(buf, new_buff, sizeof(int));
-	return result;
+	zegar_logiczny[rank]++;
+	return new_buff[1];
 }
 
 int main(int argc, char **argv)
@@ -312,6 +356,8 @@ int main(int argc, char **argv)
 	int wybrany_lekarz = rand () % (int)strtol(argv[1],NULL,10);
 	int czy_czekamy_na_odpowiedz = FALSE;
 	int czy_reset = FALSE;
+	int kiedy_do_lekarza,kiedy_do_salonu;
+	int *w_kolejce_do_salonu = malloc(sizeof(int)*size);
 	while(TRUE) {
 		if(czy_czekamy_na_odpowiedz==FALSE) {
 			switch(stan) {
@@ -320,7 +366,7 @@ int main(int argc, char **argv)
 					czy_reset=TRUE;			
 					break;
 				case CHCE_DO_LEKARZA:
-					chce_do_lekarza(&stan, rank, 4, wybrany_lekarz, zegar_logiczny);
+					kiedy_do_lekarza = chce_do_lekarza(&stan, rank, 4, wybrany_lekarz, zegar_logiczny);
 					czy_czekamy_na_odpowiedz=TRUE;
 					break;
 				case U_LEKARZA:
@@ -337,7 +383,7 @@ int main(int argc, char **argv)
 					}
 					break;
 				case CHCE_DO_SALONU:
-					chce_do_salonu(&stan, rank, 4, liczba_modelek, zegar_logiczny);
+					kiedy_do_salonu = chce_do_salonu(&stan, rank, 4, liczba_modelek, zegar_logiczny);
 					czy_czekamy_na_odpowiedz=TRUE;
 					break;
 				case W_SALONIE:
@@ -357,7 +403,7 @@ int main(int argc, char **argv)
 			}
 		}
 		else {
-			czekajac_na_odpowiedzi(&stan, zegar_logiczny, wybrany_lekarz, rank, 4, liczba_modelek, miejsca, czy_reset ? TRUE : FALSE);
+			czekajac_na_odpowiedzi(&stan, zegar_logiczny, wybrany_lekarz, rank, 4, liczba_modelek, miejsca, czy_reset ? TRUE : FALSE,kiedy_do_lekarza,kiedy_do_salonu, w_kolejce_do_salonu);
 			czy_reset=FALSE;
 			czy_czekamy_na_odpowiedz = FALSE;			
 		}
