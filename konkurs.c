@@ -371,12 +371,12 @@ int main(int argc, char **argv)
 					czy_reset=TRUE;			
 					break;
 				case CHCE_DO_LEKARZA:
-					kiedy_do_lekarza = chce_do_lekarza(&stan, rank, 4, wybrany_lekarz, zegar_logiczny);
+					kiedy_do_lekarza = chce_do_lekarza(&stan, rank, size, wybrany_lekarz, zegar_logiczny);
 					czy_czekamy_na_odpowiedz=TRUE;
 					break;
 				case U_LEKARZA:
 					u_lekarza(rank, &liczba_modelek);
-					wyjscie_od_lekarza(wybrany_lekarz,rank, 4, zegar_logiczny);
+					wyjscie_od_lekarza(wybrany_lekarz,rank, size, zegar_logiczny);
 					// TODO
 					if(liczba_modelek > 0) {
 						stan = CHCE_DO_SALONU;
@@ -388,17 +388,17 @@ int main(int argc, char **argv)
 					}
 					break;
 				case CHCE_DO_SALONU:
-					kiedy_do_salonu = chce_do_salonu(&stan, rank, 4, liczba_modelek, zegar_logiczny);
+					kiedy_do_salonu = chce_do_salonu(&stan, rank, size, liczba_modelek, zegar_logiczny);
 					czy_czekamy_na_odpowiedz=TRUE;
 					break;
 				case W_SALONIE:
 					w_salonie(rank,liczba_modelek);
-					wyjscie_z_salonu(rank,4,zegar_logiczny,liczba_modelek);
+					wyjscie_z_salonu(rank,size,zegar_logiczny,liczba_modelek);
 					stan = ZAKONCZONY;
 					printf ("\nProces %i: z %d modelkami udaje się na konkurs \n\n",rank,liczba_modelek);
 					break;
 				case ZAKONCZONY:
-					zakonczenie(rank, 4, zegar_logiczny);
+					zakonczenie(rank, size, zegar_logiczny);
 					czy_czekamy_na_odpowiedz=TRUE;
 					break;
 				case ZACZAC_KONKURS:
@@ -408,7 +408,7 @@ int main(int argc, char **argv)
 			}
 		}
 		else {
-			czekajac_na_odpowiedzi(&stan, zegar_logiczny, wybrany_lekarz, rank, 4, liczba_modelek, miejsca, czy_reset ? TRUE : FALSE,kiedy_do_lekarza,kiedy_do_salonu, w_kolejce_do_salonu);
+			czekajac_na_odpowiedzi(&stan, zegar_logiczny, wybrany_lekarz, rank, size, liczba_modelek, miejsca, czy_reset ? TRUE : FALSE,kiedy_do_lekarza,kiedy_do_salonu, w_kolejce_do_salonu);
 			czy_reset=FALSE;
 			czy_czekamy_na_odpowiedz = FALSE;			
 		}
