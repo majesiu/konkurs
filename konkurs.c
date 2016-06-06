@@ -351,7 +351,7 @@ int main(int argc, char **argv)
 
 	//printf(" %d at %s \n", rank, processor_name );
 	
-	printf("Proces: %i: liczba modelek: %d\n", rank, liczba_modelek );
+	printf("Proces: %i: liczba modelek: %d na maszynie %s o size = %i \n", rank, liczba_modelek, processor_name,size);
 	int stan = PRZED_LEKARZEM;
 	int wybrany_lekarz = rand () % (int)strtol(argv[1],NULL,10);
 	int czy_czekamy_na_odpowiedz = FALSE;
