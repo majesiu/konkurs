@@ -358,7 +358,8 @@ int main(int argc, char **argv)
 	int czy_reset = FALSE;
 	int kiedy_do_lekarza,kiedy_do_salonu;
 	int *w_kolejce_do_salonu = malloc(sizeof(int)*size);
-	for (int i = 0; i < size; ++i)
+	int i;
+	for (i = 0; i < size; ++i)
 	{
 		w_kolejce_do_salonu[i] = 0;
 	}
