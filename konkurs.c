@@ -358,6 +358,10 @@ int main(int argc, char **argv)
 	int czy_reset = FALSE;
 	int kiedy_do_lekarza,kiedy_do_salonu;
 	int *w_kolejce_do_salonu = malloc(sizeof(int)*size);
+	for (int i = 0; i < size; ++i)
+	{
+		*w_kolejce_do_salonu[i] = 0;
+	}
 	while(TRUE) {
 		if(czy_czekamy_na_odpowiedz==FALSE) {
 			switch(stan) {
