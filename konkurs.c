@@ -251,7 +251,7 @@ void czekajac_na_odpowiedzi(int *stan, int *zegar_logiczny, int lekarz_id, int r
 					for(i=0; i<size; i++) {
 						suma_w_salonie+=w_kolejce_do_salonu[i];
 					}
-					printf("Proces: %i o zegarze %i Dostalem wszystkie odpowiedzi co do salonu, w salonie bądź w kolejce do niego jest %i modelek\n", rank, zegar_logiczny[rank], ile_w_salonie);
+					printf("Proces: %i o zegarze %i Dostalem wszystkie odpowiedzi co do salonu, w salonie bądź w kolejce do niego jest %i modelek\n", rank, zegar_logiczny[rank], suma_w_salonie);
 
 					if((suma_w_salonie + modelek <=  miejsca) && (*stan == CHCE_DO_SALONU)) {
 						printf("Proces: %i: Wchodze do salonu!\n", rank);
@@ -268,7 +268,7 @@ void czekajac_na_odpowiedzi(int *stan, int *zegar_logiczny, int lekarz_id, int r
 					for(i=0; i<size; i++) {
 						suma_w_salonie+=w_kolejce_do_salonu[i];
 					}
-					printf("Proces: %i o zegarze %i Dostalem wszystkie odpowiedzi co do salonu, w salonie bądź w kolejce do niego jest %i modelek\n", rank, zegar_logiczny[rank], ile_w_salonie);
+					printf("Proces: %i o zegarze %i Dostalem wszystkie odpowiedzi co do salonu, w salonie bądź w kolejce do niego jest %i modelek\n", rank, zegar_logiczny[rank], suma_w_salonie);
 
 					if((suma_w_salonie + modelek <=  miejsca) && (*stan == CHCE_DO_SALONU)) {
 						printf("Proces: %i: Wchodze do salonu!\n", rank);
