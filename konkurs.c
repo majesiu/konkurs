@@ -360,7 +360,7 @@ int main(int argc, char **argv)
 	int *w_kolejce_do_salonu = malloc(sizeof(int)*size);
 	for (int i = 0; i < size; ++i)
 	{
-		*w_kolejce_do_salonu[i] = 0;
+		w_kolejce_do_salonu[i] = 0;
 	}
 	while(TRUE) {
 		if(czy_czekamy_na_odpowiedz==FALSE) {
