@@ -333,13 +333,14 @@ int MPI_Recv_Clock(void *buf, int source, int tag, MPI_Status *status, int *zega
 int main(int argc, char **argv)
 {
 	int rank, size, dane,liczba_modelek;
-	char processor_name[64];
+	//char processor_name[64];
 
 	MPI_Init( &argc, &argv );
 
 	MPI_Comm_size( MPI_COMM_WORLD, &size );
 	MPI_Comm_rank( MPI_COMM_WORLD, &rank );
-	MPI_Get_processor_name( processor_name, &size);
+
+	//SMPI_Get_processor_name( processor_name, &size);
 	int *zegar_logiczny = malloc(sizeof(int)*size);
 	zeruj_zegar(zegar_logiczny, size);
 	srand(time(NULL)+rank);
@@ -351,7 +352,7 @@ int main(int argc, char **argv)
 
 	//printf(" %d at %s \n", rank, processor_name );
 	
-	printf("Proces: %i: liczba modelek: %d na maszynie %s o size = %i \n", rank, liczba_modelek, processor_name,size);
+	printf("Proces: %i: liczba modelek: %d o size = %i \n", rank, liczba_modelek,size);
 	int stan = PRZED_LEKARZEM;
 	int wybrany_lekarz = rand () % (int)strtol(argv[1],NULL,10);
 	int czy_czekamy_na_odpowiedz = FALSE;
